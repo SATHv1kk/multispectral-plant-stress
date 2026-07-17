@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: >-
+  Multispectral Analysis of Plant Physiological Stress Using Deep
+  Convolutional Neural Networks
+message: If you use this software or its findings, please cite it.
+type: software
+authors:
+  - family-names: Koti
+    given-names: Sathvik
+    affiliation: Maynooth University
+repository-code: https://github.com/Honeybadzer0007/multispectral-plant-stress
+url: https://sathvik.info
+abstract: >-
+  A two-stream convolutional network that estimates crop physiological stress
+  from gantry-captured multispectral imagery of oats and barley. An RGB encoder
+  is fused with a spectral-indices stream (NDVI, NDRE) via FiLM-style gating to
+  predict leaf temperature and stomatal conductance, benchmarked against LI-600
+  porometer ground truth on a controlled farmbed at Maynooth University. Leaf
+  temperature is recovered to approximately 2.1 degrees Celsius MAE; stomatal
+  conductance is reported transparently as unresolved.
+keywords:
+  - precision agriculture
+  - multispectral imaging
+  - deep learning
+  - plant physiology
+  - remote sensing
+  - NDVI
+  - crop stress
+license: MIT
+version: 1.0.0
+date-released: '2026-07-17'

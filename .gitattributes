@@ -1,0 +1,19 @@
+# Normalise text to LF in the repo; let git check out native line endings.
+* text=auto eol=lf
+
+# Binary — never touch line endings, never diff.
+*.keras binary
+*.h5    binary
+*.pkl   binary
+*.pb    binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.pdf   binary
+*.mp4   binary
+*.mkv   binary
+
+# Keep the raw Colab export out of diffs and language stats -- it is provenance,
+# not maintained source.
+notebooks/colab_workspace_full.py linguist-generated=true -diff

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plant-stress"
+version = "1.0.0"
+description = "Multispectral analysis of plant physiological stress using deep CNNs"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Sathvik Koti" }]
+keywords = ["precision-agriculture", "multispectral", "deep-learning", "ndvi", "crop-stress"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+  "tensorflow>=2.16,<2.21",
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "scikit-learn>=1.3",
+  "opencv-python>=4.8",
+  "matplotlib>=3.7",
+  "tqdm>=4.65",
+]
+
+[project.urls]
+Homepage = "https://sathvik.info"
+Repository = "https://github.com/Honeybadzer0007/multispectral-plant-stress"
+Demo = "https://huggingface.co/spaces/jakomon/plant-stress-demo"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
