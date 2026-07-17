@@ -69,8 +69,22 @@ def main() -> int:
 
     from plant_stress.models.temporal_bigru import build_model
 
-    ours = build_model(backbone_weights=None)
+    ours = build_model()
     print(f"Reconstruction: tensors {len(ours.weights)}   params {ours.count_params():,}")
+
+    # Weightless preprocessing layers are invisible to every count-based check:
+    # EfficientNetB3(weights=None) drops a Rescaling layer yet keeps the same
+    # 497 tensors / 10,783,535 params. Compare the layer sequence itself.
+    def preprocessing_layers(model) -> list[str]:
+        encoder = model.get_layer("td_rgb").layer
+        return [
+            l.__class__.__name__
+            for l in encoder.layers[:4]
+            if l.__class__.__name__ in ("Rescaling", "Normalization")
+        ]
+
+    expected_preprocessing = ["Rescaling", "Normalization", "Rescaling"]
+    actual_preprocessing = preprocessing_layers(ours)
 
     checks = {
         "total tensor count": len(real) == len(ours.weights) == EXPECTED_TOTAL_TENSORS,
@@ -83,7 +97,14 @@ def main() -> int:
             collections.Counter(real.values())
             == collections.Counter(tuple(w.shape) for w in ours.weights)
         ),
+        "backbone preprocessing intact (pretrained variant)": (
+            actual_preprocessing == expected_preprocessing
+        ),
     }
+    if actual_preprocessing != expected_preprocessing:
+        print(f"\n  expected preprocessing {expected_preprocessing}")
+        print(f"  got                    {actual_preprocessing}")
+        print("  -> backbone was built with weights=None; predictions would be wrong.")
 
     print()
     for label, passed in checks.items():

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import tensorflow as tf
 
-from .config import EPS, NDVI_FOREGROUND_THRESHOLD
+from .config import EPS, IMAGENET_MEAN, IMAGENET_STD, NDVI_FOREGROUND_THRESHOLD
 
 
 def normalized_difference(a: tf.Tensor, b: tf.Tensor) -> tf.Tensor:
@@ -56,16 +56,54 @@ def compute_indices(rgb: tf.Tensor, nir: tf.Tensor, red_edge: tf.Tensor):
     ndvi = normalized_difference(nir, red)
     ndre = normalized_difference(nir, red_edge)
 
+    # Clip before stacking, matching the original training pipeline.
+    # NDVI/NDRE are mathematically bounded to [-1, 1], but the epsilon guard and
+    # float error let them drift marginally outside; clipping pins the range.
+    # The z-scored bands are clipped to +/-3 sigma so a handful of specular
+    # highlights cannot hand the network an input two orders of magnitude larger
+    # than everything else.
     indices = tf.concat(
-        [ndvi, ndre, zscore_per_image(nir), zscore_per_image(red_edge)], axis=-1
+        [
+            tf.clip_by_value(ndvi, -1.0, 1.0),
+            tf.clip_by_value(ndre, -1.0, 1.0),
+            tf.clip_by_value(zscore_per_image(nir), -3.0, 3.0),
+            tf.clip_by_value(zscore_per_image(red_edge), -3.0, 3.0),
+        ],
+        axis=-1,
     )
 
+    # Mask is derived from UNCLIPPED ndvi -- identical either way, since the
+    # 0.15 threshold sits well inside the clip bounds.
     mask = tf.cast(ndvi > NDVI_FOREGROUND_THRESHOLD, tf.float32)
     return indices, mask
 
 
+def normalize_rgb(rgb: tf.Tensor) -> tf.Tensor:
+    """ImageNet-normalise an RGB tensor already scaled to [0, 1].
+
+    This is applied EXPLICITLY in the pipeline rather than left to the
+    backbone's built-in preprocessing, for two reasons:
+
+    1. It matches the original training pipeline, which normalised here.
+    2. It lets masking happen AFTER normalisation, so masked background is
+       exactly 0.0. If the backbone normalised internally instead, masked
+       pixels would arrive as 0 and be mapped to roughly -2.1 -- i.e. the
+       background would read as a saturated *black leaf* rather than as
+       "nothing here".
+
+    The models that consume this MUST be built with preprocessing disabled
+    (`include_preprocessing=False`), or the input is normalised twice.
+    """
+    mean = tf.constant(IMAGENET_MEAN, tf.float32)
+    std = tf.constant(IMAGENET_STD, tf.float32)
+    return (rgb - mean) / std
+
+
 def apply_mask(rgb: tf.Tensor, indices: tf.Tensor, mask: tf.Tensor):
-    """Zero out soil and background in both streams before the network sees them.
+    """Zero out soil and background in both streams.
+
+    Expects `rgb` to be ALREADY normalised (see `normalize_rgb`), so masked
+    pixels come out as exact zeros.
 
     Both streams are masked with the SAME mask so the RGB pixel at (i, j) and
     the index vector at (i, j) always describe the same piece of leaf.

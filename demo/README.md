@@ -18,7 +18,7 @@ Upload an oat/barley leaf photo and get predicted leaf temperature (`Tleaf`) and
 stomatal conductance (`gsw`), each mapped to a stress band.
 
 **Full project:** [sathvik.info](https://sathvik.info) ·
-**Code:** [GitHub](https://github.com/Honeybadzer0007/multispectral-plant-stress)
+**Code:** [GitHub](https://github.com/SATHv1kk/multispectral-plant-stress)
 
 ## What this model is
 

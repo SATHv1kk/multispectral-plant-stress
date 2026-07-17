@@ -172,7 +172,7 @@ demo = gr.Interface(
     article=(
         "The full research model fuses NDVI/NDRE spectral indices through a "
         "two-stream FiLM architecture; this demo runs the RGB path only. "
-        "Code: https://github.com/Honeybadzer0007/multispectral-plant-stress"
+        "Code: https://github.com/SATHv1kk/multispectral-plant-stress"
     ),
 )
 

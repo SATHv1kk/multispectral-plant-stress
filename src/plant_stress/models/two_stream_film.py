@@ -61,8 +61,15 @@ def build_model(img_size: int = IMG_SIZE):
     rgb_in = L.Input(shape=(img_size, img_size, 3), name="rgb")
     idx_in = L.Input(shape=(img_size, img_size, INDEX_CHANNELS), name="indices")
 
+    # include_preprocessing=False because the data pipeline already applies
+    # ImageNet normalisation explicitly (see data/dataset.py::normalize_rgb).
+    # Leaving it True would rescale by 1/255 and normalise a SECOND time, which
+    # squashes the already-normalised input into a narrow band around zero.
     backbone = tf.keras.applications.EfficientNetV2B3(
-        include_top=False, input_tensor=rgb_in, weights="imagenet"
+        include_top=False,
+        input_tensor=rgb_in,
+        weights="imagenet",
+        include_preprocessing=False,
     )
     f_rgb = L.GlobalAveragePooling2D(name="rgb_gap")(backbone.output)
     f_rgb = L.LayerNormalization(epsilon=1e-6, name="rgb_ln")(f_rgb)

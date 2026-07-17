@@ -81,15 +81,30 @@ soil and background before the network sees the frame.
 
 ## 6. Splitting
 
-**Date-blocked, never random.** Validation is the **last 25% of capture dates**.
+Two different splits exist in this project. Do not conflate them.
 
-Frames from one day share illumination, canopy state and treatment stage, so a
-random row split would put near-duplicates on both sides and inflate scores.
-Holding out the *latest* dates also makes validation a forward-in-time estimate,
-which is how the model would actually be used.
+| | Thesis (reported results) | This repo (`data/dataset.py`) |
+|---|---|---|
+| Method | random 80/20, `random_state=42` | date-blocked, last 25% of dates |
+| Size | N=62 train / N=16 test | varies with capture dates |
+| Used for | every number in `results.md` | `train.py` |
 
-The dataset is small and deliberately so: a controlled farmbed trial, ~62 train
-/ 16 validation samples at the split used for the reported figures. This is a
+**The thesis used a random 80/20 row split.** That is what produced the
+≈2.1 °C MAE.
+
+**`data/dataset.py` implements a date-blocked split instead**, via
+`date_blocked_split()`. Frames from one day share illumination, canopy state and
+treatment stage, so a random row split puts near-duplicates on both sides and
+flatters the score. Holding out the *latest* dates also makes validation a
+forward-in-time estimate, which is how the model would actually be used.
+
+The date-blocked split is the more defensible methodology and came later, in the
+notebook's post-thesis cells. It is **not** how the reported figures were
+measured, and it would be expected to score worse. If you re-train with
+`train.py` and get numbers below the thesis's, that is the split talking, not a
+broken pipeline.
+
+The dataset is small and deliberately so: a controlled farmbed trial. This is a
 research prototype for a physiological signal, not a production instrument.
 
 ## 7. Augmentation

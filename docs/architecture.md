@@ -109,6 +109,39 @@ on an out-of-distribution photo. `app.py` surfaces that instead of clamping it �
 a negative stomatal conductance is physically impossible and is the clearest
 available signal that the image is nothing like the training data.
 
+Verified against ground truth: on 98 real farmbed frames paired with LI-600
+readings, this model scores **MAE 2.075 °C / RMSE 2.59** for `Tleaf` — matching
+the reported ≈2.1 °C. `gsw` scores R² = −3.81, confirming it is not usable.
+(Those frames likely overlap the training set, so this is a reproduction check,
+not a clean validation.)
+
+## Input scaling — the easiest way to break this project
+
+Every model here is preceded by preprocessing, and each one wants a **different
+input range**. Getting this wrong fails silently: no error, just bad numbers.
+
+| Model | Backbone built with | Feed it |
+|---|---|---|
+| `two_stream_film` | `include_preprocessing=False` | ImageNet-normalised, via `indices.normalize_rgb` |
+| `temporal_bigru` | v1 — always preprocesses | **[0, 255]** raw |
+| demo | `include_preprocessing=True` | **[0, 255]** raw |
+
+Measured cost of getting it wrong: feeding the demo model `[0, 1]` instead of
+`[0, 255]` moves Tleaf MAE from **2.08 °C to 15.96 °C**. Every pixel maps to
+roughly −2.1 after the internal `Rescaling(1/255)`, so the whole image reads as
+black and the prediction collapses to the training mean (pred sd drops from 2.92
+to 0.08).
+
+`two_stream_film` disables the built-in preprocessing on purpose, so that
+masking can happen *after* normalisation. Masked background then lands on
+exactly `0.0`. If the backbone normalised internally instead, masked pixels
+would arrive as `0` and be mapped to ≈ −2.1 — the network would read the
+background as a saturated black leaf rather than as "nothing here".
+
+For `temporal_bigru`, the true training-time scaling is **not recoverable** (the
+training cell was never exported), so its `[0, 255]` contract is an assumption
+from the architecture, not a verified fact. See `models/README.md`.
+
 ## Target transforms
 
 `gsw` is trained as z-scored `log(gsw + ε)`. It is strictly positive and

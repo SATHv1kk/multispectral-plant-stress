@@ -36,8 +36,29 @@ Two deliberate differences from the single-frame model:
    this dataset (stomata respond on a timescale of minutes), so no gsw output is
    claimed. This mirrors the honest reporting in the thesis.
 
-The backbone carries its own Rescaling + Normalization layers, so feed it RGB in
-[0, 1] and do NOT apply ImageNet normalisation yourself.
+INPUT CONTRACT -- read before feeding this model anything.
+
+`EfficientNetB3` (v1) has no `include_preprocessing` switch: it ALWAYS carries
+its own `Rescaling(1/255) -> Normalization(ImageNet) -> Rescaling(1/std)` chain.
+So the graph as built here expects RGB in **[0, 255]**, unnormalised. Feeding it
+[0, 1] maps every pixel to roughly -2.1 -- i.e. uniformly black -- and destroys
+the signal. Measured on the demo model, that same mistake moved Tleaf MAE from
+2.08 deg C to 15.96 deg C.
+
+However, the exact preprocessing used to TRAIN these checkpoints is NOT
+recoverable: the training cell was never exported (see models/README.md). Every
+comparable cell in the notebook normalises RGB by hand and feeds the result into
+a backbone that then preprocesses again -- so the original may well have
+double-normalised. We cannot tell from the weights alone.
+
+What this means practically: the architecture and weights are verified, but the
+input scaling for these specific checkpoints is an ASSUMPTION. Before trusting
+their absolute outputs, sanity-check predictions against known Tleaf values and
+confirm the errors look like the reported ~2.1 deg C rather than ~16.
+
+`data/dataset.py` targets `two_stream_film`, which is built with
+`include_preprocessing=False` and takes explicitly ImageNet-normalised input. It
+is therefore NOT directly compatible with this model's [0, 255] contract.
 """
 
 from __future__ import annotations
@@ -87,9 +108,27 @@ def build_model(
     """Build the temporal Tleaf regressor matching the released checkpoints.
 
     Args:
-        backbone_weights: 'imagenet' to start from pretrained weights when
-            training. Pass None when you are about to restore a checkpoint
-            anyway -- it skips a 44 MB download that would just be overwritten.
+        backbone_weights: leave as 'imagenet'. Passing None does NOT merely skip
+            a download -- it silently builds a DIFFERENT GRAPH.
+
+    Why `backbone_weights` must stay 'imagenet', even when restoring a
+    checkpoint that overwrites every weight:
+
+    `EfficientNetB3(weights="imagenet")` emits
+        Rescaling(1/255) -> Normalization(ImageNet) -> Rescaling(1/std)
+    while `EfficientNetB3(weights=None)` emits only
+        Rescaling(1/255) -> Normalization(mean=0, var=1)
+
+    The third Rescaling exists only in the pretrained variant. Both builds have
+    497 weight tensors and 10,783,535 parameters, so a shape or parameter-count
+    check CANNOT tell them apart, and `load_weights()` succeeds on both --
+    it restores the Normalization statistics but cannot conjure a layer that
+    was never built.
+
+    Measured on the seed-42 checkpoint with identical input, the two builds
+    disagree by 1.13 in z-scored Tleaf -- roughly 2.9 deg C, larger than the
+    model's entire reported 2.1 deg C MAE. `tools/verify_checkpoint.py` guards
+    this explicitly by asserting the Rescaling layer count.
     """
     rgb_in = L.Input(shape=(seq_len, img_size, img_size, 3), name="rgb_seq")
     idx_in = L.Input(shape=(seq_len, img_size, img_size, INDEX_CHANNELS), name="idx_seq")
@@ -127,10 +166,14 @@ def load_checkpoint(path: str, seq_len: int = SEQ_LEN, img_size: int = IMG_SIZE)
     and loading only the weight tensors, which skips config deserialization
     entirely. The fallback is verified: it reproduces the checkpoint's 522
     weight tensors / 13,959,600 parameters exactly.
+
+    The rebuild MUST use the pretrained backbone variant. See `build_model` --
+    `weights=None` omits a Rescaling layer that `load_weights()` cannot restore,
+    which silently shifts predictions by ~2.9 deg C.
     """
     try:
         return tf.keras.models.load_model(path, compile=False)
     except Exception:
-        model = build_model(seq_len=seq_len, img_size=img_size, backbone_weights=None)
+        model = build_model(seq_len=seq_len, img_size=img_size, backbone_weights="imagenet")
         model.load_weights(path)
         return model

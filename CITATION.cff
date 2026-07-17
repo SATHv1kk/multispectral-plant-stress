@@ -8,7 +8,7 @@ authors:
   - family-names: Koti
     given-names: Sathvik
     affiliation: Maynooth University
-repository-code: https://github.com/Honeybadzer0007/multispectral-plant-stress
+repository-code: https://github.com/SATHv1kk/multispectral-plant-stress
 url: https://sathvik.info
 abstract: >-
   A two-stream convolutional network that estimates crop physiological stress

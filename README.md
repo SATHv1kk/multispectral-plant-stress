@@ -28,8 +28,11 @@ every day, without touching a plant.
 
 | Target | Status | Result |
 |---|---|---|
-| **Leaf temperature** (`Tleaf`) | ✅ working | MAE ≈ **2.1 °C**, fusion beats RGB-only *and* indices-only |
-| **Stomatal conductance** (`gsw`) | 🚧 in progress | R² ≈ −0.016 — **no accuracy claimed** |
+| **Leaf temperature** (`Tleaf`) | ✅ working | MAE ≈ **2.1 °C**, RMSE 2.6, R² 0.1986 |
+| **Stomatal conductance** (`gsw`) | 🚧 in progress | R² −0.0163 — **no accuracy claimed** |
+
+Fusion beats the indices-only MLP baseline (2.1 °C vs 2.5 °C). An **RGB-only
+ablation was never run** — the thesis states it as a hypothesis, not a result.
 
 `gsw` is physiologically volatile: stomata open and close over minutes in
 response to light, water potential and VPD, and a single static frame does not
@@ -42,7 +45,7 @@ is excluded from every claim here. See [results](docs/results.md).
 ## Quick start
 
 ```bash
-git clone https://github.com/Honeybadzer0007/multispectral-plant-stress
+git clone https://github.com/SATHv1kk/multispectral-plant-stress
 cd multispectral-plant-stress
 pip install -r requirements.txt
 ```
@@ -101,8 +104,13 @@ Capture ──> Align ──> Indices + mask ──> Two-stream model ──> Ca
 4. **Infer** — two-stream inference, 3-seed ensembling, horizontal-flip TTA,
    Ridge calibration on `Tleaf`.
 
-Validation is **date-blocked** (last 25% of capture dates), never a random row
-split — frames from one day are near-duplicates of each other.
+**A note on splits, because it changes how you read the numbers.** The thesis's
+reported results use a **random 80/20 split** (`random_state=42`, N=62 train /
+N=16 test). This repo's `data/dataset.py` implements a **date-blocked** split
+(last 25% of capture dates) instead, since frames from one day are
+near-duplicates and a random split flatters the score. The date-blocked pipeline
+is the sounder methodology but will **not** reproduce the thesis figures — see
+[docs/results.md](docs/results.md).
 
 ## Three models, and which is which
 
@@ -143,7 +151,7 @@ src/plant_stress/
   indices.py          NDVI/NDRE + vegetation mask
   data/
     label_licor.py    LI-600 exports -> labelled ground truth
-    dataset.py        tf.data pipelines, date-blocked split
+    dataset.py        tf.data pipelines, date-blocked split (see note above)
   models/
     two_stream_film.py  single-frame, FiLM-style gating  (thesis architecture)
     temporal_bigru.py   5-frame BiGRU, Tleaf only        (released weights)

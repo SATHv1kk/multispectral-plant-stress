@@ -29,7 +29,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://sathvik.info"
-Repository = "https://github.com/Honeybadzer0007/multispectral-plant-stress"
+Repository = "https://github.com/SATHv1kk/multispectral-plant-stress"
 Demo = "https://huggingface.co/spaces/jakomon/plant-stress-demo"
 
 [tool.setuptools.packages.find]

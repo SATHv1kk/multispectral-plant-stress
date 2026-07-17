@@ -26,7 +26,7 @@ from ..config import (
     STREAM_RGB,
     VAL_DATE_FRACTION,
 )
-from ..indices import apply_mask, compute_indices
+from ..indices import apply_mask, compute_indices, normalize_rgb
 
 AUTOTUNE = tf.data.AUTOTUNE
 
@@ -111,40 +111,64 @@ def _decode(path: tf.Tensor, channels: int, img_size: int) -> tf.Tensor:
     return tf.image.resize(img, (img_size, img_size), antialias=True)
 
 
-def load_and_prepare(rgb_path, nir_path, re_path, img_size: int):
-    """Load one triplet and return masked (rgb, indices). No augmentation.
+def augment_bands(rgb: tf.Tensor, nir: tf.Tensor, red_edge: tf.Tensor):
+    """Augment RAW bands, before indices are computed.
 
-    Augmentation is applied by the caller, so that a clip can be augmented as a
-    unit -- see `augment`.
-    """
-    rgb = _decode(rgb_path, 3, img_size)
-    nir = _decode(nir_path, 1, img_size)
-    red_edge = _decode(re_path, 1, img_size)
+    Accepts a single frame [H,W,C] or a stacked clip [T,H,W,C]. `tf.image` ops
+    treat a leading axis as batch, so passing a clip applies ONE decision to
+    every frame in it. That matters: flipping or brightening some frames of a
+    clip and not others would destroy the temporal continuity the BiGRU exists
+    to read.
 
-    idx, mask = compute_indices(rgb, nir, red_edge)
-    return apply_mask(rgb, idx, mask)
+    Augmenting here rather than after `compute_indices` means the index map is
+    derived from the pixels the network actually sees, so NDVI/NDRE stay
+    consistent with the RGB rather than describing a different image.
 
-
-def augment(rgb: tf.Tensor, idx: tf.Tensor):
-    """Augment a single frame [H,W,C] or a whole clip [T,H,W,C].
-
-    `tf.image` ops treat a leading axis as batch, so passing a [T,H,W,C] clip
-    applies ONE flip decision to every frame in it. That matters: flipping some
-    frames of a clip and not others would destroy the temporal continuity the
-    BiGRU exists to read.
-
-    RGB and indices are flipped with the same decision so they stay
-    pixel-aligned. Photometric jitter touches RGB only -- perturbing the NIR or
-    red-edge bands would corrupt the physics baked into NDVI/NDRE.
+    All three bands are flipped together to stay pixel-aligned. Photometric
+    jitter touches RGB only -- perturbing NIR or red-edge would corrupt the
+    physics baked into NDVI/NDRE.
     """
     if tf.random.uniform([]) < 0.5:
         rgb = tf.image.flip_left_right(rgb)
-        idx = tf.image.flip_left_right(idx)
+        nir = tf.image.flip_left_right(nir)
+        red_edge = tf.image.flip_left_right(red_edge)
 
     rgb = tf.image.random_brightness(rgb, 0.05)
     rgb = tf.image.random_contrast(rgb, 0.9, 1.1)
     rgb = tf.clip_by_value(rgb, 0.0, 1.0)
-    return rgb, idx
+    return rgb, nir, red_edge
+
+
+def prepare_bands(rgb: tf.Tensor, nir: tf.Tensor, red_edge: tf.Tensor):
+    """Raw [0,1] bands for ONE frame -> (normalised masked rgb, masked indices).
+
+    Single frame only ([H,W,C]). `compute_indices` z-scores by reducing over the
+    whole tensor, so handing it a stacked [T,H,W,C] clip would silently produce
+    a per-CLIP z-score instead of the per-FRAME z-score the original pipeline
+    used. Callers with clips must map this over the time axis -- see
+    `make_sequence_dataset`.
+
+    Order follows the original training pipeline exactly:
+        indices from RAW bands -> normalise RGB -> mask both
+
+    Indices must come from the unnormalised bands, because NDVI/NDRE are ratios
+    of reflectance and mean nothing once the bands are ImageNet-shifted.
+    Normalising before masking leaves masked background at exactly 0.
+    """
+    idx, mask = compute_indices(rgb, nir, red_edge)
+    return apply_mask(normalize_rgb(rgb), idx, mask)
+
+
+def load_and_prepare(rgb_path, nir_path, re_path, img_size: int, training: bool = False):
+    """Load one triplet and return (normalised masked rgb, masked indices)."""
+    rgb = _decode(rgb_path, 3, img_size)
+    nir = _decode(nir_path, 1, img_size)
+    red_edge = _decode(re_path, 1, img_size)
+
+    if training:
+        rgb, nir, red_edge = augment_bands(rgb, nir, red_edge)
+
+    return prepare_bands(rgb, nir, red_edge)
 
 
 def make_single_frame_dataset(
@@ -180,9 +204,7 @@ def make_single_frame_dataset(
         ds = ds.shuffle(max(2, len(df)), reshuffle_each_iteration=True)
 
     def _map(rgb_p, nir_p, re_p, g, t):
-        rgb, idx = load_and_prepare(rgb_p, nir_p, re_p, img_size)
-        if training:
-            rgb, idx = augment(rgb, idx)
+        rgb, idx = load_and_prepare(rgb_p, nir_p, re_p, img_size, training=training)
         return {"rgb": rgb, "indices": idx}, {"gsw": g, "Tleaf": t}
 
     return (
@@ -215,16 +237,25 @@ def make_sequence_dataset(
         ds = ds.shuffle(max(2, len(clips)), reshuffle_each_iteration=True)
 
     def _map(rgb_paths, nir_paths, re_paths, tleaf):
-        frames = [
-            load_and_prepare(rgb_paths[i], nir_paths[i], re_paths[i], img_size)
-            for i in range(seq_len)
-        ]
-        rgb_seq = tf.stack([f[0] for f in frames], axis=0)  # [T,H,W,3]
-        idx_seq = tf.stack([f[1] for f in frames], axis=0)  # [T,H,W,4]
+        # Decode raw bands first and stack, so augmentation sees the whole clip
+        # and applies ONE decision across all T frames. Augmenting frame by
+        # frame would flip half a clip and destroy temporal continuity.
+        rgb_seq = tf.stack([_decode(rgb_paths[i], 3, img_size) for i in range(seq_len)])
+        nir_seq = tf.stack([_decode(nir_paths[i], 1, img_size) for i in range(seq_len)])
+        re_seq = tf.stack([_decode(re_paths[i], 1, img_size) for i in range(seq_len)])
+
         if training:
-            # Augment the stacked clip so one flip decision covers all T frames.
-            rgb_seq, idx_seq = augment(rgb_seq, idx_seq)
-        return {"rgb_seq": rgb_seq, "idx_seq": idx_seq}, tleaf
+            rgb_seq, nir_seq, re_seq = augment_bands(rgb_seq, nir_seq, re_seq)
+
+        # Indices per frame, matching the original pipeline's per-frame z-score.
+        frames = [prepare_bands(rgb_seq[i], nir_seq[i], re_seq[i]) for i in range(seq_len)]
+        return (
+            {
+                "rgb_seq": tf.stack([f[0] for f in frames]),
+                "idx_seq": tf.stack([f[1] for f in frames]),
+            },
+            tleaf,
+        )
 
     return (
         ds.map(_map, num_parallel_calls=AUTOTUNE)
