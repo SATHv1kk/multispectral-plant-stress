@@ -53,8 +53,10 @@ def export(keras_path: Path, out_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--keras", type=Path, default=Path("rgb_singleframe_demo.keras"))
-    parser.add_argument("--out", type=Path, default=Path("saved_model"))
+    # Defaults resolve next to this file, so the script works from any cwd.
+    here = Path(__file__).resolve().parent
+    parser.add_argument("--keras", type=Path, default=here / "rgb_singleframe_demo.keras")
+    parser.add_argument("--out", type=Path, default=here / "saved_model")
     args = parser.parse_args()
     export(args.keras, args.out)
 

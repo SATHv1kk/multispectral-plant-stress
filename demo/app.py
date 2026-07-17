@@ -12,6 +12,7 @@ Runs unchanged on a Hugging Face ZeroGPU Space and on a local machine:
 """
 
 import os
+from pathlib import Path
 
 import gradio as gr
 import numpy as np
@@ -24,12 +25,17 @@ IMG_SIZE = 224
 # Target order used during training: ['gsw', 'Tleaf'].
 GSW_IDX, TLEAF_IDX = 0, 1
 
+# Resolve model paths relative to THIS FILE, not the working directory. A Space
+# happens to run with cwd set to the app directory, but `python demo/app.py`
+# from the repo root does not -- and bare relative paths would fail there.
+HERE = Path(__file__).resolve().parent
+
 # Prefer the TF SavedModel when present. It replays a frozen graph instead of
 # re-parsing Keras layer configs, so it loads regardless of the Keras version
 # the Space happens to pin. Fall back to the .keras file, which is what ships in
 # the git repo.
-SAVED_MODEL_DIR = "saved_model"
-KERAS_PATH = "rgb_singleframe_demo.keras"
+SAVED_MODEL_DIR = HERE / "saved_model"
+KERAS_PATH = HERE / "rgb_singleframe_demo.keras"
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
@@ -49,22 +55,28 @@ except ImportError:
 # ------------------------------------------------------- Load model once
 def _load_model():
     """Return (predict_fn, description). Tries SavedModel, then .keras."""
-    if os.path.isdir(SAVED_MODEL_DIR):
-        loaded = tf.saved_model.load(SAVED_MODEL_DIR)
+    if SAVED_MODEL_DIR.is_dir():
+        loaded = tf.saved_model.load(str(SAVED_MODEL_DIR))
         infer = loaded.signatures["serving_default"]
         out_key = list(infer.structured_outputs.keys())[0]
 
         def predict_fn(batch):
             return infer(tf.constant(batch))[out_key].numpy()
 
-        return predict_fn, f"TF SavedModel ({SAVED_MODEL_DIR})"
+        return predict_fn, f"TF SavedModel ({SAVED_MODEL_DIR.name})"
+
+    if not KERAS_PATH.exists():
+        raise FileNotFoundError(
+            f"No model found. Expected {KERAS_PATH} (committed to the repo) "
+            f"or a SavedModel at {SAVED_MODEL_DIR}."
+        )
 
     model = tf.keras.models.load_model(KERAS_PATH, compile=False)
 
     def predict_fn(batch):
         return model.predict(batch, verbose=0)
 
-    return predict_fn, f"Keras model ({KERAS_PATH})"
+    return predict_fn, f"Keras model ({KERAS_PATH.name})"
 
 
 print("Loading model...")
