@@ -9,7 +9,7 @@ description = "Multispectral analysis of plant physiological stress using deep C
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Sathvik Koti" }]
+authors = [{ name = "Sathvik" }]
 keywords = ["precision-agriculture", "multispectral", "deep-learning", "ndvi", "crop-stress"]
 classifiers = [
   "Programming Language :: Python :: 3",

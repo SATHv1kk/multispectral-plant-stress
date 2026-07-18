@@ -5,7 +5,7 @@ title: >-
 message: If you use this software or its findings, please cite it.
 type: software
 authors:
-  - family-names: Koti
+  - family-names: ""
     given-names: Sathvik
     affiliation: Maynooth University
 repository-code: https://github.com/SATHv1kk/multispectral-plant-stress

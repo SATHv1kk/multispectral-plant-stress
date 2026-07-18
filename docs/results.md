@@ -2,7 +2,7 @@
 
 All figures below are taken from the submitted thesis
 (`Multispectral Analysis of Plant Physiological Stress Using Deep Convolutional
-Neural Networks`, Koti, Maynooth University) and cross-checked against it.
+Neural Networks`, Sathvik, Maynooth University) and cross-checked against it.
 
 Reported honestly: one target works, one does not.
 

@@ -178,4 +178,4 @@ See [`CITATION.cff`](CITATION.cff).
 
 ## License
 
-[MIT](LICENSE) — Sathvik Koti, Maynooth University.
+[MIT](LICENSE) — Sathvik, Maynooth University.
