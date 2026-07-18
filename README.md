@@ -4,7 +4,6 @@
 temperature to ≈ 2.1 °C MAE.**
 
 [**▶ Try the live demo — sathvik.info**](https://sathvik.info) &nbsp;·&nbsp;
-[Hosted demo (Hugging Face)](https://huggingface.co/spaces/jakomon/plant-stress-demo) &nbsp;·&nbsp;
 [Architecture](docs/architecture.md) &nbsp;·&nbsp;
 [Data pipeline](docs/data_pipeline.md) &nbsp;·&nbsp;
 [Results](docs/results.md)
@@ -50,15 +49,8 @@ cd multispectral-plant-stress
 pip install -r requirements.txt
 ```
 
-### Run the demo locally
-
-```bash
-cd demo
-pip install -r requirements.txt gradio
-python app.py
-```
-
-The 26 MB demo model is committed, so this works straight after clone.
+The live demo runs entirely client-side in the browser at
+[sathvik.info](https://sathvik.info) — no server, no API.
 
 ### Use the research checkpoints
 
@@ -120,7 +112,7 @@ This repo contains three networks. They are easy to confuse:
 |---|---|---|---|---|---|
 | **Single-frame FiLM** | `models/two_stream_film.py` | EfficientNet**V2**-B3 | 1 frame + indices | `gsw`, `Tleaf` | 14.1M |
 | **Temporal BiGRU** | `models/temporal_bigru.py` | EfficientNet-B3 (**v1**) | 5 frames + indices | `Tleaf` | 14.0M |
-| **Demo** | `demo/app.py` | EfficientNet**V2**-B0 | 1 frame, RGB only | `gsw`, `Tleaf` | 6.1M |
+| **Demo** | client-side ([sathvik.info](https://sathvik.info)) | EfficientNet**V2**-B0 | 1 frame, RGB only | `gsw`, `Tleaf` | 6.1M |
 
 The **released checkpoints are the temporal BiGRU model**, not the single-frame
 FiLM model the thesis describes, and their backbone is EfficientNet-B3 **v1**.
@@ -159,7 +151,6 @@ src/plant_stress/
   predict.py          flip TTA + seed ensembling
   calibration.py      leakage-free Ridge calibration
   evaluate.py         metrics + stress confusion matrices
-demo/                 Gradio app, demo model, SavedModel export
 docs/                 architecture, data pipeline, results
 notebooks/            original 20k-line Colab export (provenance)
 models/               research checkpoints (via GitHub Release)

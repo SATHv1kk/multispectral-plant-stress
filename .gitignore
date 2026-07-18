@@ -5,12 +5,6 @@ models/*.keras
 models/*.h5
 models/*.pkl
 
-# The demo model (26 MB) IS committed -- it is what makes `demo/app.py` runnable
-# straight after clone. Do not add demo/*.keras here.
-
-# Generated SavedModel export (rebuild with demo/export_saved_model.py)
-demo/saved_model/
-
 # --- Python --------------------------------------------------------------
 __pycache__/
 *.py[cod]

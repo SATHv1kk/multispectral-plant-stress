@@ -5,7 +5,7 @@ the differences matter, so this page states exactly what each one is.
 
 | | Single-frame FiLM | Temporal BiGRU | Demo |
 |---|---|---|---|
-| Module | `models/two_stream_film.py` | `models/temporal_bigru.py` | `demo/app.py` |
+| Module | `models/two_stream_film.py` | `models/temporal_bigru.py` | client-side (sathvik.info) |
 | Backbone | EfficientNet**V2**-B3 | EfficientNet-B3 (**v1**) | EfficientNet**V2**-B0 |
 | Input | 1 frame, 320² RGB + 320²×4 indices | 5 frames, 320² RGB + indices | 1 frame, 224² RGB |
 | Fusion | FiLM-style gating | concatenation | none (single stream) |

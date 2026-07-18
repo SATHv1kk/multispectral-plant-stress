@@ -18,8 +18,9 @@ Or grab them from the [Releases page](../../releases) and drop them here.
 | `best_img_imgonly_seed777.keras` | 267 MB | temporal BiGRU, seed 777 |
 | `tleaf_calibrator_NOLEAK.pkl` | 1 KB | Ridge calibrator for Tleaf (sklearn) |
 
-The demo model (`demo/rgb_singleframe_demo.keras`, 26 MB) **is** committed, so
-`demo/app.py` runs straight after clone.
+The distilled single-frame demo model (EfficientNetV2-B0, 26 MB) is deployed
+client-side in the browser at [sathvik.info](https://sathvik.info) — it is not
+served from this repository.
 
 ## What these checkpoints actually are
 
